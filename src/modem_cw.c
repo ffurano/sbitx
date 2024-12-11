@@ -366,7 +366,7 @@ float cw_tx_get_sample() {
   symbol_now = cw_read_key();
   
   if (!keydown_count && !keyup_count) { // CW key may be going down - because it's not up
-    millis_now = millis();              // remember time of possible keydown
+    millis_now = sbitx_millis();        // remember time of possible keydown
     if (cw_tone.freq_hz != get_pitch()) // set CW pitch if needed
       vfo_start( &cw_tone, get_pitch(), 0);
   }
@@ -467,9 +467,9 @@ float cw_tx_get_sample() {
   }
   else { //keydown_count is zero
 		if(cw_envelope > 0.001)  // ramping down on the trailing edge
-			cw_envelope = ((vfo_read(&cw_env)/FLOAT_SCALE) + 1)/2; 
+		  cw_envelope = ((vfo_read(&cw_env)/FLOAT_SCALE) + 1)/2; 
 		if (keyup_count > 0)
-			keyup_count--;
+		  keyup_count--;
 	}
   sample = (vfo_read(&cw_tone) / FLOAT_SCALE) * cw_envelope;
 
