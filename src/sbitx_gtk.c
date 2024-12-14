@@ -69,6 +69,19 @@ int vfo_lock_enabled = 0;
 static float wf_min = 1.0f; // Default to 100%
 static float wf_max = 1.0f; // Default to 100%
 
+int scope_avg = 10; // Default value for SCOPEAVG
+
+// Declare global variables for WFSPD and SCOPEGAIN
+int wf_spd = 50;		// Default value for WFSPD
+float scope_gain = 1.0; // Default value for SCOPEGAIN
+
+#define AVERAGING_FRAMES 15 // Number of frames to average
+// Buffer to hold past spectrum data
+static int spectrum_history[AVERAGING_FRAMES][MAX_BINS] = {0};
+
+// Index of the current frame in the history buffer
+static int current_frame_index = 0;
+
 /* Front Panel controls */
 char pins[15] = {0, 2, 3, 6, 7,
 				 10, 11, 12, 13, 14,
@@ -734,6 +747,15 @@ struct field main_controls[] = {
 	{"#wf_max", do_wf_edit, 1000, -1000, 40, 40, "WFMAX", 40, "100", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 0, 200, 1, 0},
 
+	{"#wf_spd", do_wf_edit, 200, 20, 5, 50, "WFSPD", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 20, 200, 5, 0},
+
+	{"#scope_gain", do_wf_edit, 50, 1, 1, 10, "SCOPEGAIN", 10, "1.0", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 50, 1, 0},
+
+	{"#scope_avg", do_wf_edit, 20, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 20, 1, 0},
+
 	// VFO Lock ON/OFF
 	{"#vfo_lock", do_toggle_option, 1000, -1000, 40, 40, "VFOLK", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, 0},
@@ -754,8 +776,8 @@ struct field main_controls[] = {
 	 "ON/OFF", 0, 0, 0, 0},
 
 	// Sub Menu Control 473,50 <- was
-	{"#menu", do_toggle_option, 462, 50, 40, 40, "MENU", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
-	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
+	{"#menu", do_toggle_option, 462, 50, 40, 40, "MENU", 40, "OFF", 3, FONT_FIELD_VALUE,
+	 "2/1/OFF", 0, 0, 0, COMMON_CONTROL},
 
 	// Notch Filter Controls
 	{"#notch_plugin", do_toggle_option, 1000, -1000, 40, 40, "NOTCH", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
@@ -1886,6 +1908,26 @@ void init_waterfall()
 		wf_max = atof(f_max->value) / 100.0f; // Assuming field value is stored as a scaled integer
 	}
 
+	// Retrieve #wf_spd field and update wf_spd
+	struct field *f_spd = get_field("#wf_spd");
+	if (f_spd)
+	{
+		wf_spd = atoi(f_spd->value); // Assuming wf_spd is an integer field
+	}
+
+	// Retrieve #scope_gain field and update scope_gain
+	struct field *f_gain = get_field("#scope_gain");
+	if (f_gain)
+	{
+		scope_gain = 1.0f + (atoi(f_gain->value) - 1) * 0.1f; // Map 1-50 to 1.0-5.0
+	}
+	// Retrieve #scope_avg field and update scope_avg
+	struct field *f_avg = get_field("#scope_avg");
+	if (f_avg)
+	{
+		scope_avg = atoi(f_avg->value); // Assuming scope_avg is an integer field
+	}
+
 	// Print dimensions for debugging -W2ON
 	// printf("Waterfall dimensions: width = %d, height = %d\n", f->width, f->height);
 
@@ -1992,36 +2034,41 @@ void draw_waterfall(struct field *f, cairo_t *gfx)
 
 		int v = (int)(normalized);
 
-		// Gradient mapping logic
+		// Gradient mapping logic with smooth transitions
 		if (v < 20)
-		{ // r = 0, g = 0, increase blue
-			waterfall_map[index++] = 0;
-			waterfall_map[index++] = 0;
-			waterfall_map[index++] = v * 12;
+		{ // Transition from black to blue
+			float t = v / 20.0;
+			waterfall_map[index++] = 0;				 // Red
+			waterfall_map[index++] = 0;				 // Green
+			waterfall_map[index++] = (int)(t * 255); // Blue
 		}
 		else if (v < 40)
-		{ // r = 0, increase g, blue is max
-			waterfall_map[index++] = 0;
-			waterfall_map[index++] = (v - 20) * 12;
-			waterfall_map[index++] = 255;
+		{ // Transition from blue to cyan
+			float t = (v - 20) / 20.0;
+			waterfall_map[index++] = 0;				 // Red
+			waterfall_map[index++] = (int)(t * 255); // Green
+			waterfall_map[index++] = 255;			 // Blue
 		}
 		else if (v < 60)
-		{ // r = 0, g = max, decrease b
-			waterfall_map[index++] = 0;
-			waterfall_map[index++] = 255;
-			waterfall_map[index++] = (60 - v) * 12;
+		{ // Transition from cyan to green
+			float t = (v - 40) / 20.0;
+			waterfall_map[index++] = 0;						 // Red
+			waterfall_map[index++] = 255;					 // Green
+			waterfall_map[index++] = (int)((1.0 - t) * 255); // Blue
 		}
 		else if (v < 80)
-		{ // increase r, g = max, b = 0
-			waterfall_map[index++] = (v - 60) * 12;
-			waterfall_map[index++] = 255;
-			waterfall_map[index++] = 0;
+		{ // Transition from green to yellow
+			float t = (v - 60) / 20.0;
+			waterfall_map[index++] = (int)(t * 255); // Red
+			waterfall_map[index++] = 255;			 // Green
+			waterfall_map[index++] = 0;				 // Blue
 		}
 		else
-		{ // r = max, decrease g, b = 0
-			waterfall_map[index++] = 255;
-			waterfall_map[index++] = (100 - v) * 12;
-			waterfall_map[index++] = 0;
+		{ // Transition from yellow to red
+			float t = (v - 80) / 20.0;
+			waterfall_map[index++] = 255;					 // Red
+			waterfall_map[index++] = (int)((1.0 - t) * 255); // Green
+			waterfall_map[index++] = 0;						 // Blue
 		}
 	}
 
@@ -2062,6 +2109,35 @@ void draw_spectrum_grid(struct field *f_spectrum, cairo_t *gfx)
 		cairo_line_to(gfx, f->x + i, f->y + grid_height);
 	}
 	cairo_stroke(gfx);
+}
+
+void update_spectrum_history(int *current_spectrum, int n_bins)
+{
+	// Add the current spectrum data to the history buffer
+	memcpy(spectrum_history[current_frame_index], current_spectrum, n_bins * sizeof(int));
+
+	// Advance to the next frame index, wrapping around if needed
+	current_frame_index = (current_frame_index + 1) % scope_avg;
+}
+
+void compute_time_based_average(int *averaged_spectrum, int n_bins)
+{
+	memset(averaged_spectrum, 0, n_bins * sizeof(int));
+
+	// Sum the values from all frames in the history
+	for (int frame = 0; frame < scope_avg; frame++)
+	{
+		for (int bin = 0; bin < n_bins; bin++)
+		{
+			averaged_spectrum[bin] += spectrum_history[frame][bin];
+		}
+	}
+
+	// Compute the average
+	for (int bin = 0; bin < n_bins; bin++)
+	{
+		averaged_spectrum[bin] /= scope_avg;
+	}
 }
 
 void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
@@ -2503,50 +2579,126 @@ void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
 		}
 	}
 
-	//we only plot the second half of the bins (on the lower sideband
+	// we only plot the second half of the bins (on the lower sideband
 	int last_y = 100;
 
 	int n_bins = (int)((1.0 * spectrum_span) / 46.875);
-	//the center frequency is at the center of the lower sideband,
-	//i.e, three-fourth way up the bins.
-	int starting_bin = (3 *MAX_BINS)/4 - n_bins/2;
-	int ending_bin = starting_bin + n_bins; 
+	// the center frequency is at the center of the lower sideband,
+	// i.e, three-fourth way up the bins.
+	int starting_bin = (3 * MAX_BINS) / 4 - n_bins / 2;
+	int ending_bin = starting_bin + n_bins;
 
-	float x_step = (1.0 * f->width )/n_bins;
+	float x_step = (1.0 * f->width) / n_bins;
 
-	//start the plot
-	cairo_set_source_rgb(gfx, palette[SPECTRUM_PLOT][0], 
-		palette[SPECTRUM_PLOT][1], palette[SPECTRUM_PLOT][2]);
+	// start the plot
+	cairo_set_source_rgb(gfx, palette[SPECTRUM_PLOT][0],
+						 palette[SPECTRUM_PLOT][1], palette[SPECTRUM_PLOT][2]);
 	cairo_move_to(gfx, f->x + f->width, f->y + grid_height);
 
-//	float x = fmod((1.0 * spectrum_span), 46.875);
+	//	float x = fmod((1.0 * spectrum_span), 46.875);
 	float x = 0;
 	int j = 0;
 
-	for (i = starting_bin; i <= ending_bin; i++){
+	// Calculate the dynamic range
+	int min_value = INT_MAX;
+	int max_value = INT_MIN;
+
+	// Compute the time-based average spectrum
+	int averaged_spectrum[MAX_BINS];
+	compute_time_based_average(averaged_spectrum, MAX_BINS);
+
+	// Find min and max values for dynamic range computation
+	for (int i = starting_bin; i <= ending_bin; i++)
+	{
+		int raw_value = spectrum_plot[i] + waterfall_offset; // Use raw spectrum for waterfall
+		if (raw_value < min_value)
+			min_value = raw_value;
+		if (raw_value > max_value)
+			max_value = raw_value;
+	}
+
+	// Prevent division by zero in case of flat input
+	int dynamic_range = max_value - min_value;
+	if (dynamic_range == 0)
+		dynamic_range = 1;
+
+	// Define a fixed stretch factor
+	float stretch_factor = 3; // Adjust to control the stretching
+
+	// Create a linear gradient for the spectrum fill
+	cairo_pattern_t *gradient = cairo_pattern_create_linear(0, f->y + grid_height, 0, f->y);
+
+	// Set antialiasing mode for smoother rendering
+	cairo_set_antialias(gfx, CAIRO_ANTIALIAS_FAST);
+
+	// Add color stops to the gradient (blue -> yellow -> red)
+	cairo_pattern_add_color_stop_rgba(gradient, 0.0, 0.0, 0.0, 0.25, 0.5); // Dark blue
+	cairo_pattern_add_color_stop_rgba(gradient, 0.25, 0.0, 0.5, 1.0, 0.5); // Lighter blue
+	cairo_pattern_add_color_stop_rgba(gradient, 0.5, 0.5, 0.5, 0.0, 0.7);  // Greenish-yellow
+	cairo_pattern_add_color_stop_rgba(gradient, 0.75, 1.0, 1.0, 0.0, 0.8); // Bright yellow
+	cairo_pattern_add_color_stop_rgba(gradient, 1.0, 1.0, 0.0, 0.0, 0.9);  // Red at the top
+	// Begin a new path for the filled spectrum
+	cairo_move_to(gfx, f->x + f->width, f->y + grid_height); // Start at bottom-right corner
+
+	for (int i = starting_bin; i <= ending_bin; i++)
+	{
 		int y;
 
-		// the center fft bin is at zero, from MAX_BINS/2 onwards,
-		// the bins are at lowest frequency (-ve frequency)
-		//y axis is the power  in db of each bin, scaled to 80 db
-		y = ((spectrum_plot[i] + waterfall_offset) * f->height)/80; 
-		// limit y inside the spectrum display box
-		if ( y <  0)
+		// Original scaling for the waterfall (unchanged)
+		int raw_value = spectrum_plot[i] + waterfall_offset; // Use original data for waterfall
+		y = ((raw_value)*f->height) / 80;					 // Original linear scaling for waterfall
+
+		// Clamp y for valid range (for the waterfall)
+		if (y < 0)
 			y = 0;
 		if (y > f->height)
 			y = f->height - 1;
-		//the plot should be increase upwards
-		cairo_line_to(gfx, f->x + f->width - (int)x, f->y + grid_height - y);
 
-		//fill the waterfall
+		// Apply stretch factor to the averaged spectrum plot
+		int enhanced_y = y;												// Start with the original y
+		float averaged_value = averaged_spectrum[i] + waterfall_offset; // Use averaged data
+		if (averaged_value > 0)
+		{														 // Stretch only non-zero values
+			float stretched_value = averaged_value * scope_gain; // Apply stretch factor
+
+			// Scale stretched value to screen coordinates
+			enhanced_y = (int)((stretched_value * f->height) / 80);
+
+			// Clip enhanced_y to grid height
+			if (enhanced_y > grid_height)
+				enhanced_y = grid_height; // Limit to grid height
+		}
+
+		// Add the spectrum line point to the path
+		cairo_line_to(gfx, f->x + f->width - (int)x, f->y + grid_height - enhanced_y);
+
+		// Fill the waterfall with the original (unchanged) y value
 		for (int k = 0; k <= 1 + (int)x_step; k++)
-			wf[k + f->width - (int)x] = (y * 100)/grid_height;
+			wf[k + f->width - (int)x] = (y * 100) / grid_height; // Use original y for waterfall
+
 		x += x_step;
 		if (f->width <= x)
 			x = f->width - 1;
 	}
 
+	// Close the path to create a filled shape
+	cairo_line_to(gfx, f->x, f->y + grid_height); // Bottom-left corner
+	cairo_close_path(gfx);
+
+	// Apply the gradient as the fill
+	cairo_set_source(gfx, gradient);
+	cairo_fill(gfx);
+
+	// Clean up the gradient
+	cairo_pattern_destroy(gradient);
+
+	// Redraw the spectrum line on top
+	cairo_set_source_rgb(gfx, palette[SPECTRUM_PLOT][0],
+						 palette[SPECTRUM_PLOT][1], palette[SPECTRUM_PLOT][2]);
 	cairo_stroke(gfx);
+
+	// Update the history buffer with the current spectrum
+	update_spectrum_history(spectrum_plot, MAX_BINS);
 
 	if (pitch >= f_spectrum->x)
 	{
@@ -2800,28 +2952,26 @@ void menu_display(int show)
 
 				// Line 1 (screen_height - 140)
 				field_move("SET", 5, screen_height - 140, 45, 45);
-				field_move("WFMIN", 70, screen_height - 140, 45, 45);
-				field_move("TXEQ", 130, screen_height - 140, 45, 45);
-				field_move("RXEQ", 180, screen_height - 140, 45, 45);
-				field_move("NOTCH", 240, screen_height - 140, 95, 45);
-				field_move("ANR", 350, screen_height - 140, 95, 45);
-				field_move("COMP", 460, screen_height - 140, 95, 45);
-				field_move("TUNE", 570, screen_height - 140, 95, 45);
+				field_move("TXEQ", 70, screen_height - 140, 45, 45);
+				field_move("RXEQ", 130, screen_height - 140, 45, 45);
+				field_move("NOTCH", 190, screen_height - 140, 95, 45);
+				field_move("ANR", 300, screen_height - 140, 95, 45);
+				field_move("COMP", 410, screen_height - 140, 95, 45);
+				field_move("TUNE", 520, screen_height - 140, 95, 45);
 				if (!strcmp(field_str("EPTTOPT"), "ON"))
 				{
-					field_move("ePTT", 680, screen_height - 140, 95, 45); // Rightmost
+					field_move("ePTT", 630, screen_height - 140, 95, 45); // Rightmost
 				}
 
 				// Line 2 (screen_height - 90)
 				field_move("TXMON", 5, screen_height - 90, 45, 45);
-				field_move("WFMAX", 70, screen_height - 90, 45, 45);
-				field_move("EQSET", 130, screen_height - 90, 95, 45);
-				field_move("NFREQ", 240, screen_height - 90, 45, 45);
-				field_move("BNDWTH", 290, screen_height - 90, 45, 45);
-				field_move("DSP", 350, screen_height - 90, 95, 45);
-				field_move("BFO", 460, screen_height - 90, 45, 45);
-				field_move("VFOLK", 510, screen_height - 90, 45, 45);
-				field_move("TNPWR", 570, screen_height - 90, 45, 45);
+				field_move("EQSET", 70, screen_height - 90, 95, 45);
+				field_move("NFREQ", 180, screen_height - 90, 45, 45);
+				field_move("BNDWTH", 240, screen_height - 90, 45, 45);
+				field_move("DSP", 300, screen_height - 90, 95, 45);
+				field_move("BFO", 410, screen_height - 90, 45, 45);
+				field_move("VFOLK", 470, screen_height - 90, 45, 45);
+				field_move("TNPWR", 520, screen_height - 90, 45, 45);
 			}
 
 			else
@@ -2851,6 +3001,35 @@ void menu_display(int show)
 		}
 	}
 }
+
+void menu2_display(int show)
+{
+	// Start the height at -200 because the first key
+	// will bump it down by a row
+	int height = screen_height - 200;
+
+	if (show)
+	{
+		// Display the waveform-related controls in a new layout
+
+		// Single line (screen_height - 140)
+		field_move("WFMIN", 5, screen_height - 140, 70, 45);
+		field_move("WFMAX", 80, screen_height - 140, 70, 45);
+		field_move("WFSPD", 155, screen_height - 140, 70, 45);
+		field_move("SCOPEGAIN", 230, screen_height - 140, 70, 45);
+		field_move("SCOPEAVG", 305, screen_height - 140, 70, 45); // Add SCOPEAVG field
+	}
+	else
+	{
+		// Move the fields off-screen if not showing
+		// field_move("WFMIN", -1000, screen_height - 140, 70, 45);
+		// field_move("WFMAX", -1000, screen_height - 140, 70, 45);
+		// field_move("WFSPD", -1000, screen_height - 140, 70, 45);
+		// field_move("SCOPEGAIN", -1000, screen_height - 140, 70, 45);
+		// field_move("SCOPEAVG", -1000, screen_height - 140, 70, 45); // Move SCOPEAVG off-screen
+	}
+}
+
 // scales the ui as per current screen width from
 // the nominal 800x480 size of the original layout
 static void layout_ui()
@@ -2863,18 +3042,24 @@ static void layout_ui()
 	y1 = 100;
 	y2 = screen_height;
 
-	// first move all the controls that are not common out of sight
+	// Define standard sizes for spectrum
+	const int default_spectrum_height = 120; // Spectrum height default
+
+	// Move controls out of view if not common
 	for (f = active_layout; f->cmd[0]; f++)
+	{
 		if (!(f->section & COMMON_CONTROL))
 		{
 			update_field(f);
 			f->y = -1000;
 			update_field(f);
 		}
+	}
 
-	// locate the kbd to the right corner
+	// Locate the keyboard
 	field_move("KBD", screen_width - 47, screen_height - 47, 45, 45);
-	// now, move the main radio controls to the right
+
+	// Main radio controls
 	field_move("FREQ", x2 - 205, 0, 180, 40);
 	field_move("AUDIO", x2 - 45, 5, 40, 40);
 	field_move("IF", x2 - 45, 50, 40, 40);
@@ -2888,34 +3073,44 @@ static void layout_ui()
 	field_move("VFO", x2 - 245, 50, 40, 40);
 	field_move("SPAN", x2 - 205, 50, 40, 40);
 
+	// Adjust for keyboard/menu
 	if (!strcmp(field_str("KBD"), "ON"))
 	{
-		// take out 3 button widths from the bottom
 		y2 = screen_height - 150;
 		keyboard_display(1);
 	}
 	else
+	{
 		keyboard_display(0);
+	}
 
-	if (!strcmp(field_str("MENU"), "ON"))
-	{ // W2JON
-		// Same area as kbd. Take out 3 button widths from the bottom
+	if (!strcmp(field_str("MENU"), "1"))
+	{
 		y2 = screen_height - 150;
 		menu_display(1);
+	}
+	else if (!strcmp(field_str("MENU"), "2"))
+	{
+		y2 = screen_height - 150;
+		menu2_display(1);
 	}
 	else
 	{
 		menu_display(0);
+		menu2_display(0);
 	}
 
+	// Layout adjustments per mode
 	int m_id = mode_id(field_str("MODE"));
-	int button_width = 100;
 	switch (m_id)
 	{
 	case MODE_FT8:
+		// Place buttons and calculate highest Y position for FT8
 		field_move("CONSOLE", 5, y1, 350, y2 - y1 - 55);
-		field_move("SPECTRUM", 360, y1, x2 - 365, 100);
-		field_move("WATERFALL", 360, y1 + 100, x2 - 365, y2 - y1 - 155);
+		field_move("SPECTRUM", 360, y1, x2 - 365, default_spectrum_height);
+		field_move("WATERFALL", 360, y1 + default_spectrum_height, x2 - 365, y2 - y1 - (default_spectrum_height + 55));
+
+		// Place FT8-specific buttons
 		field_move("ESC", 5, y2 - 47, 40, 45);
 		field_move("F1", 50, y2 - 47, 50, 45);
 		field_move("F2", 100, y2 - 47, 50, 45);
@@ -2931,14 +3126,15 @@ static void layout_ui()
 		field_move("TX_PITCH", 600, y2 - 47, 73, 45);
 		field_move("SIDETONE", 675, y2 - 47, 73, 45);
 		break;
+
 	case MODE_CW:
 	case MODE_CWR:
+		// Place buttons and calculate highest Y position for CW
 		field_move("CONSOLE", 5, y1, 350, y2 - y1 - 110);
-		// field_move("SPECTRUM", 360, y1, x2-365, 100);
-		// field_move("WATERFALL", 360, y1+100, x2-365, y2-y1-110);
-		field_move("SPECTRUM", 360, y1, x2 - 365, 70);					// fixed
-		field_move("WATERFALL", 360, y1 + 70, x2 - 365, y2 - y1 - 125); // fixed
-		// first line below the decoder/waterfall
+		field_move("SPECTRUM", 360, y1, x2 - 365, default_spectrum_height);
+		field_move("WATERFALL", 360, y1 + default_spectrum_height, x2 - 365, y2 - y1 - (default_spectrum_height + 105));
+
+		// Place CW-specific buttons
 		y1 = y2 - 97;
 		field_move("ESC", 5, y1, 70, 45);
 		field_move("WPM", 75, y1, 75, 45);
@@ -2946,7 +3142,6 @@ static void layout_ui()
 		field_move("CW_DELAY", 225, y1, 75, 45);
 		field_move("CW_INPUT", 375, y1, 75, 45);
 		field_move("SIDETONE", 450, y1, 75, 45);
-
 		y1 += 50;
 		field_move("F1", 5, y1, 70, 45);
 		field_move("F2", 75, y1, 75, 45);
@@ -2959,23 +3154,25 @@ static void layout_ui()
 		field_move("F9", 600, y1, 75, 45);
 		field_move("F10", 675, y1, 70, 45);
 		break;
+
 	case MODE_USB:
 	case MODE_LSB:
 	case MODE_AM:
 	case MODE_NBFM:
-	case MODE_2TONE: // W9JES
+	case MODE_2TONE:
+		// Place buttons and calculate highest Y position for these modes
 		field_move("SPECT", screen_width - 95, screen_height - 47, 45, 45);
 		if (!strcmp(field_str("SPECT"), "FULL"))
 		{
 			field_move("CONSOLE", 1000, -1500, 350, y2 - y1 - 55);
-			field_move("SPECTRUM", 5, y1, x2 - 7, 70);
-			field_move("WATERFALL", 5, y1 + 70, x2 - 7, y2 - y1 - 125);
+			field_move("SPECTRUM", 5, y1, x2 - 7, default_spectrum_height);
+			field_move("WATERFALL", 5, y1 + default_spectrum_height, x2 - 7, y2 - y1 - (default_spectrum_height + 55));
 		}
 		else
 		{
 			field_move("CONSOLE", 5, y1, 350, y2 - y1 - 55);
-			field_move("SPECTRUM", 360, y1, x2 - 365, 70);
-			field_move("WATERFALL", 360, y1 + 70, x2 - 365, y2 - y1 - 125);
+			field_move("SPECTRUM", 360, y1, x2 - 365, default_spectrum_height);
+			field_move("WATERFALL", 360, y1 + default_spectrum_height, x2 - 365, y2 - y1 - (default_spectrum_height + 55));
 		}
 		y1 = y2 - 50;
 		field_move("MIC", 5, y1, 45, 45);
@@ -2990,14 +3187,14 @@ static void layout_ui()
 		if (!strcmp(field_str("SPECT"), "FULL"))
 		{
 			field_move("CONSOLE", 1000, -1500, 350, y2 - y1 - 55);
-			field_move("SPECTRUM", 5, y1, x2 - 7, 70);
-			field_move("WATERFALL", 5, y1 + 70, x2 - 7, y2 - y1 - 125);
+			field_move("SPECTRUM", 5, y1, x2 - 7, default_spectrum_height);
+			field_move("WATERFALL", 5, y1 + default_spectrum_height, x2 - 7, y2 - y1 - (default_spectrum_height + 55));
 		}
 		else
 		{
 			field_move("CONSOLE", 5, y1, 350, y2 - y1 - 55);
-			field_move("SPECTRUM", 360, y1, x2 - 365, 70);
-			field_move("WATERFALL", 360, y1 + 70, x2 - 365, y2 - y1 - 125);
+			field_move("SPECTRUM", 360, y1, x2 - 365, default_spectrum_height);
+			field_move("WATERFALL", 360, y1 + default_spectrum_height, x2 - 365, y2 - y1 - (default_spectrum_height + 55));
 		}
 		y1 = y2 - 50;
 		field_move("MIC", 5, y1, 45, 45);
@@ -3011,31 +3208,15 @@ static void layout_ui()
 		break;
 	default:
 		field_move("CONSOLE", 5, y1, 350, y2 - y1 - 110);
-		field_move("SPECTRUM", 360, y1, x2 - 365, 70);
-		// field_move("WATERFALL", 360, y1+70, x2-365, y2-y1-180);
-		field_move("WATERFALL", 360, y1 + 70, x2 - 365, y2 - y1 - 125); // fixed W2JON
-		y1 = y2 - 105;
-		field_move("F1", 5, y1, 90, 45);
-		field_move("F2", 100, y1, 95, 45);
-		field_move("F3", 200, y1, 100, 45);
-		field_move("F4", 300, y1, 100, 45);
-		field_move("F5", 400, y1, 100, 45);
-		field_move("F6", 500, y1, 100, 45);
-		field_move("F7", 600, y1, 100, 45);
-		field_move("F8", 700, y1, 95, 45);
-		y1 += 50;
-		field_move("F9", 5, y1, 95, 45);
-		field_move("F10", 100, y1, 100, 45);
-		field_move("F11", 200, y1, 100, 45);
-		field_move("F12", 300, y1, 95, 45);
-		field_move("LOW", 400, y1, 50, 45);
-		field_move("HIGH", 475, y1, 50, 45);
-		field_move("PITCH", 550, y1, 50, 45);
-		field_move("SIDETONE", 600, y1, 95, 45);
+		field_move("SPECTRUM", 360, y1, x2 - 365, default_spectrum_height);
+		field_move("WATERFALL", 360, y1 + default_spectrum_height, x2 - 365, y2 - y1 - (default_spectrum_height + 55));
 		break;
 	}
+
+	// Redraw entire screen
 	invalidate_rect(0, 0, screen_width, screen_height);
 }
+
 void dump_ui()
 {
 	FILE *pf = fopen("main_ui.ini", "w");
@@ -4337,6 +4518,19 @@ int do_wf_edit(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 	{
 		wf_max = (float)field_value / 100;
 	}
+	else if (strcmp(field_name, "WFSPD") == 0)
+	{
+		wf_spd = field_value;
+	}
+	else if (strcmp(field_name, "SCOPEGAIN") == 0)
+	{
+		scope_gain = 1.0f + (atoi(field_value_str) - 1) * 0.1f; // Map 1-50 to 1.0-5.0
+	}
+	else if (strcmp(field_name, "SCOPEAVG") == 0) // Add SCOPEAVG handling
+	{
+		scope_avg = field_value;
+	}
+
 	return 0;
 }
 
@@ -5584,7 +5778,9 @@ void handleButton1Press()
 			{
 				// Long press detected
 				menuVisible = !menuVisible;
-				field_set("MENU", menuVisible ? "ON" : "OFF");
+				field_set("MENU", menuVisible == 1 ? "1" : menuVisible == 2 ? "2"
+																			: "OFF");
+
 				// Wait for the button release to avoid immediate short press detection
 				while (digitalRead(ENC1_SW) == 0)
 				{
@@ -5742,21 +5938,32 @@ gboolean ui_tick(gpointer gook)
 	}
 
 	int tick_count = 100;
+
 	switch (mode_id(field_str("MODE")))
 	{
 	case MODE_CW:
 	case MODE_CWR:
-		tick_count = 50;
+		tick_count += wf_spd; // Use wf_spd for CW and CWR modes
 		break;
 	case MODE_FT8:
-		tick_count = 200;
+		tick_count = 4 * wf_spd; // Use 4x wf_spd for FT8 mode
 		break;
 	case MODE_AM:
-		tick_count = 50;
+		tick_count = wf_spd; // Use wf_spd for AM mode
 		break;
 	default:
-		// tick_count = 100;
-		tick_count = 50;
+		tick_count = wf_spd; // Default to wf_spd
+		break;
+	}
+
+	// Ensure tick_count is within reasonable bounds
+	if (tick_count < 1)
+	{
+		tick_count = 1; // Minimum tick_count to avoid division by zero or overly frequent updates
+	}
+	else if (tick_count > 500)
+	{
+		tick_count = 500; // Arbitrary maximum to prevent too infrequent updates
 	}
 	if (ticks >= tick_count)
 	{
@@ -6300,7 +6507,11 @@ void do_control_action(char *cmd)
 	{
 		layout_ui();
 	}
-	else if (!strcmp(request, "MENU ON"))
+	else if (!strcmp(request, "MENU 1"))
+	{
+		layout_ui();
+	}
+	else if (!strcmp(request, "MENU 2"))
 	{
 		layout_ui();
 	}
