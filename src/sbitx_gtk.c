@@ -74,6 +74,9 @@ int scope_avg = 10; // Default value for SCOPEAVG
 // Declare global variables for WFSPD and SCOPEGAIN
 int wf_spd = 50;		// Default value for WFSPD
 float scope_gain = 1.0; // Default value for SCOPEGAIN
+int scope_size = 100;	// Default size
+static bool layout_needs_refresh = false;
+static int last_scope_size = -1; // Default to an invalid value initially
 
 #define AVERAGING_FRAMES 15 // Number of frames to average
 // Buffer to hold past spectrum data
@@ -747,14 +750,17 @@ struct field main_controls[] = {
 	{"#wf_max", do_wf_edit, 1000, -1000, 40, 40, "WFMAX", 40, "100", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 0, 200, 1, 0},
 
-	{"#wf_spd", do_wf_edit, 200, 20, 5, 50, "WFSPD", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 20, 200, 5, 0},
+	{"#wf_spd", do_wf_edit, 150, 20, 5, 50, "WFSPD", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 20, 150, 5, 0},
 
-	{"#scope_gain", do_wf_edit, 50, 1, 1, 10, "SCOPEGAIN", 10, "1.0", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 1, 50, 1, 0},
+	{"#scope_gain", do_wf_edit, 25, 1, 1, 10, "SCOPEGAIN", 10, "1.0", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 25, 1, 0},
 
 	{"#scope_avg", do_wf_edit, 20, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 1, 20, 1, 0},
+
+	{"#scope_size", do_wf_edit, 150, 50, 5, 50, "SCOPESIZE", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 50, 150, 5, 0},
 
 	// VFO Lock ON/OFF
 	{"#vfo_lock", do_toggle_option, 1000, -1000, 40, 40, "VFOLK", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
@@ -1912,7 +1918,8 @@ void init_waterfall()
 	struct field *f_spd = get_field("#wf_spd");
 	if (f_spd)
 	{
-		wf_spd = atoi(f_spd->value); // Assuming wf_spd is an integer field
+		int original_value = atoi(f_spd->value); // Get the value from the field
+		wf_spd = 170 - original_value;			 // Invert the value
 	}
 
 	// Retrieve #scope_gain field and update scope_gain
@@ -1926,6 +1933,11 @@ void init_waterfall()
 	if (f_avg)
 	{
 		scope_avg = atoi(f_avg->value); // Assuming scope_avg is an integer field
+	}
+	struct field *f_size = get_field("#scope_size");
+	if (f_size)
+	{
+		scope_size = atoi(f_size->value); // Retrieve and update scope_size
 	}
 
 	// Print dimensions for debugging -W2ON
@@ -3017,7 +3029,8 @@ void menu2_display(int show)
 		field_move("WFMAX", 80, screen_height - 140, 70, 45);
 		field_move("WFSPD", 155, screen_height - 140, 70, 45);
 		field_move("SCOPEGAIN", 230, screen_height - 140, 70, 45);
-		field_move("SCOPEAVG", 305, screen_height - 140, 70, 45); // Add SCOPEAVG field
+		field_move("SCOPEAVG", 305, screen_height - 140, 70, 45);  // Add SCOPEAVG field
+		field_move("SCOPESIZE", 380, screen_height - 140, 70, 45); // Add SCOPESIZE field
 	}
 	else
 	{
@@ -3027,6 +3040,7 @@ void menu2_display(int show)
 		// field_move("WFSPD", -1000, screen_height - 140, 70, 45);
 		// field_move("SCOPEGAIN", -1000, screen_height - 140, 70, 45);
 		// field_move("SCOPEAVG", -1000, screen_height - 140, 70, 45); // Move SCOPEAVG off-screen
+		// field_move("SCOPESIZE", -1000, screen_height - 140, 70, 45); // Move SCOPESIZE off-screen
 	}
 }
 
@@ -3043,7 +3057,7 @@ static void layout_ui()
 	y2 = screen_height;
 
 	// Define standard sizes for spectrum
-	const int default_spectrum_height = 120; // Spectrum height default
+	int default_spectrum_height = scope_size; // Spectrum height
 
 	// Move controls out of view if not common
 	for (f = active_layout; f->cmd[0]; f++)
@@ -3214,6 +3228,7 @@ static void layout_ui()
 	}
 
 	// Redraw entire screen
+
 	invalidate_rect(0, 0, screen_width, screen_height);
 }
 
@@ -4520,7 +4535,7 @@ int do_wf_edit(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 	}
 	else if (strcmp(field_name, "WFSPD") == 0)
 	{
-		wf_spd = field_value;
+		wf_spd = 170 - field_value; // Invert the value for WFSPD
 	}
 	else if (strcmp(field_name, "SCOPEGAIN") == 0)
 	{
@@ -4529,6 +4544,16 @@ int do_wf_edit(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 	else if (strcmp(field_name, "SCOPEAVG") == 0) // Add SCOPEAVG handling
 	{
 		scope_avg = field_value;
+	}
+	else if (strcmp(field_name, "SCOPESIZE") == 0)
+	{
+		int new_scope_size = atoi(field_value_str); // Get the new value
+
+		if (new_scope_size != scope_size) // Check if the value has changed
+		{
+			scope_size = new_scope_size; // Update the global variable
+			layout_needs_refresh = true; // Mark layout for update
+		}
 	}
 
 	return 0;
@@ -5943,14 +5968,24 @@ gboolean ui_tick(gpointer gook)
 	{
 	case MODE_CW:
 	case MODE_CWR:
-		tick_count += wf_spd; // Use wf_spd for CW and CWR modes
+		tick_count = wf_spd; // Use wf_spd for CW and CWR modes
 		break;
+
 	case MODE_FT8:
-		tick_count = 4 * wf_spd; // Use 4x wf_spd for FT8 mode
-		break;
+        if (wf_spd < 50)
+        {
+            tick_count = 50; // Ensure tick_count is at least 50 if wf_spd is too low
+        }
+        else
+        {
+            tick_count = wf_spd; // Use wf_spd as tick_count otherwise
+        }
+        break;
+
 	case MODE_AM:
 		tick_count = wf_spd; // Use wf_spd for AM mode
 		break;
+
 	default:
 		tick_count = wf_spd; // Default to wf_spd
 		break;
@@ -5980,7 +6015,11 @@ gboolean ui_tick(gpointer gook)
 			sprintf(buff, "%d", vswr);
 			set_field("#vswr", buff);
 		}
-
+		if (layout_needs_refresh)
+		{
+			layout_ui();
+			layout_needs_refresh = false; // Reset the flag
+		}
 		struct field *f = get_field("spectrum");
 		update_field(f); // move this each time the spectrum watefall index is moved
 		f = get_field("waterfall");
