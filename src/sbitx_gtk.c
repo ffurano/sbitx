@@ -756,8 +756,8 @@ struct field main_controls[] = {
 	{"#scope_gain", do_wf_edit, 25, 1, 1, 10, "SCOPEGAIN", 10, "1.0", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 1, 25, 1, 0},
 
-	{"#scope_avg", do_wf_edit, 20, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 1, 20, 1, 0},
+	{"#scope_avg", do_wf_edit, 16, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 16, 1, 0},
 
 	{"#scope_size", do_wf_edit, 150, 50, 5, 50, "SCOPESIZE", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 50, 150, 5, 0},
