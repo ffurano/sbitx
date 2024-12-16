@@ -2959,13 +2959,12 @@ void menu_display(int show)
 		{
 			if (show)
 			{
-				if (scope_size > 100) // Only adjust if scope_size is greater than 100
 
-					// NEW LAYOUT @ 3.2
-					// Move each control to the appropriate position, grouped by line and ordered left to right
+				// NEW LAYOUT @ 3.2
+				// Move each control to the appropriate position, grouped by line and ordered left to right
 
-					// Line 1 (screen_height - 140)
-					field_move("SET", 5, screen_height - 140, 45, 45);
+				// Line 1 (screen_height - 140)
+				field_move("SET", 5, screen_height - 140, 45, 45);
 				field_move("TXEQ", 70, screen_height - 140, 45, 45);
 				field_move("RXEQ", 130, screen_height - 140, 45, 45);
 				field_move("NOTCH", 190, screen_height - 140, 95, 45);
