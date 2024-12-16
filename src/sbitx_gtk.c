@@ -756,11 +756,11 @@ struct field main_controls[] = {
 	{"#scope_gain", do_wf_edit, 25, 1, 1, 10, "SCOPEGAIN", 10, "1.0", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 1, 25, 1, 0},
 
-	{"#scope_avg", do_wf_edit, 16, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 1, 16, 1, 0},
+	{"#scope_avg", do_wf_edit, 15, 1, 1, 10, "SCOPEAVG", 10, "10", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 15, 1, 0},
 
-	{"#scope_size", do_wf_edit, 150, 50, 5, 50, "SCOPESIZE", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 50, 150, 5, 0},
+	{"#scope_size", do_wf_edit, 120, 50, 5, 50, "SCOPESIZE", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 50, 120, 5, 0},
 
 	// VFO Lock ON/OFF
 	{"#vfo_lock", do_toggle_option, 1000, -1000, 40, 40, "VFOLK", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
@@ -2240,7 +2240,7 @@ void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
 
 	// Cast notch filter display
 	double yellow_opacity = 0.5; // (0.0 - 1.0)
-	int yellow_bar_height = 57;
+	int yellow_bar_height = scope_size - 13;
 	int notch_start, notch_width;
 	int center_x = f_spectrum->x + (f_spectrum->width / 2);
 
@@ -2959,11 +2959,13 @@ void menu_display(int show)
 		{
 			if (show)
 			{
-				// NEW LAYOUT @ 3.2
-				// Move each control to the appropriate position, grouped by line and ordered left to right
+				if (scope_size > 100) // Only adjust if scope_size is greater than 100
 
-				// Line 1 (screen_height - 140)
-				field_move("SET", 5, screen_height - 140, 45, 45);
+					// NEW LAYOUT @ 3.2
+					// Move each control to the appropriate position, grouped by line and ordered left to right
+
+					// Line 1 (screen_height - 140)
+					field_move("SET", 5, screen_height - 140, 45, 45);
 				field_move("TXEQ", 70, screen_height - 140, 45, 45);
 				field_move("RXEQ", 130, screen_height - 140, 45, 45);
 				field_move("NOTCH", 190, screen_height - 140, 95, 45);
@@ -2988,6 +2990,7 @@ void menu_display(int show)
 
 			else
 			{
+
 				// Move the fields off-screen if not showing
 				// field_move("B0F", -1000, screen_height - 150, 45, 45);
 				// field_move("B0G", -1000, screen_height - 150, 45, 45);
@@ -3022,6 +3025,7 @@ void menu2_display(int show)
 
 	if (show)
 	{
+
 		// Display the waveform-related controls in a new layout
 
 		// Single line (screen_height - 140)
@@ -3034,6 +3038,7 @@ void menu2_display(int show)
 	}
 	else
 	{
+
 		// Move the fields off-screen if not showing
 		// field_move("WFMIN", -1000, screen_height - 140, 70, 45);
 		// field_move("WFMAX", -1000, screen_height - 140, 70, 45);
@@ -5972,15 +5977,15 @@ gboolean ui_tick(gpointer gook)
 		break;
 
 	case MODE_FT8:
-        if (wf_spd < 50)
-        {
-            tick_count = 50; // Ensure tick_count is at least 50 if wf_spd is too low
-        }
-        else
-        {
-            tick_count = wf_spd; // Use wf_spd as tick_count otherwise
-        }
-        break;
+		if (wf_spd < 50)
+		{
+			tick_count = 50; // Ensure tick_count is at least 50 if wf_spd is too low
+		}
+		else
+		{
+			tick_count = wf_spd; // Use wf_spd as tick_count otherwise
+		}
+		break;
 
 	case MODE_AM:
 		tick_count = wf_spd; // Use wf_spd for AM mode
