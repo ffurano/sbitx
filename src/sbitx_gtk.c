@@ -2975,7 +2975,7 @@ void menu_display(int show)
 				field_move("TUNE", 520, screen_height - 95, 95, 45);
 				if (!strcmp(field_str("EPTTOPT"), "ON"))
 				{
-					field_move("ePTT", 630, screen_height - 140, 95, 45); // Rightmost
+					field_move("ePTT", 630, screen_height - 95, 95, 45); // Rightmost
 				}
 
 				// Line 2 (screen_height - 90)
