@@ -3500,6 +3500,12 @@ static void focus_field_without_toggle(struct field *f)
 	}
 }
 
+struct field *get_focused_field()
+{
+    return f_focus; // Return the currently focused field
+}
+
+
 time_t time_sbitx()
 {
 	if (time_delta)
@@ -3537,6 +3543,8 @@ void apply_band_settings(long frequency)
 	if (new_band != -1)
 	{
 		// Highlight the correct button
+		struct field *current_focus = get_focused_field(); // Get the currently focused field
+
 		for (int i = 0; i < max_bands; i++)
 		{
 			struct field *band_field = get_field_by_label(band_stack[i].name);
@@ -3545,7 +3553,11 @@ void apply_band_settings(long frequency)
 			{
 				if (i == new_band)
 				{
-					focus_field_without_toggle(band_field);
+					// Only focus the band button if the frequency adjustment field is not focused
+					if (current_focus && strcmp(current_focus->label, "FREQ") != 0)
+					{
+						focus_field_without_toggle(band_field);
+					}
 				}
 			}
 			else
@@ -3574,7 +3586,6 @@ void apply_band_settings(long frequency)
 		printf("Error: Frequency %ld is outside all band ranges.\n", frequency);
 	}
 }
-
 
 // setting the frequency is complicated by having to take care of the
 // rit/split and power levels associated with each frequency
