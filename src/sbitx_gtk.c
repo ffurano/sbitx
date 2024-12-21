@@ -3502,9 +3502,8 @@ static void focus_field_without_toggle(struct field *f)
 
 struct field *get_focused_field()
 {
-    return f_focus; // Return the currently focused field
+	return f_focus; // Return the currently focused field
 }
-
 
 time_t time_sbitx()
 {
@@ -3554,7 +3553,8 @@ void apply_band_settings(long frequency)
 				if (i == new_band)
 				{
 					// Only focus the band button if the frequency adjustment field is not focused
-					if (current_focus && strcmp(current_focus->label, "FREQ") != 0)
+					if (current_focus && strcmp(current_focus->label, "FREQ") != 0 &&
+						strcmp(current_focus->label, "SPECTRUM") != 0)
 					{
 						focus_field_without_toggle(band_field);
 					}
