@@ -3526,66 +3526,75 @@ struct band *get_band_by_frequency(int frequency)
 
 void apply_band_settings(long frequency)
 {
-	int new_band = -1;
-	int max_bands = sizeof(band_stack) / sizeof(struct band);
+    int new_band = -1;
+    int max_bands = sizeof(band_stack) / sizeof(struct band);
 
-	// Determine the band index based on the frequency
-	for (int i = 0; i < max_bands; i++)
-	{
-		if (frequency >= band_stack[i].start && frequency <= band_stack[i].stop)
-		{
-			new_band = i;
-			break;
-		}
-	}
+    // Determine the band index based on the frequency
+    for (int i = 0; i < max_bands; i++)
+    {
+        if (frequency >= band_stack[i].start && frequency <= band_stack[i].stop)
+        {
+            new_band = i;
+            break;
+        }
+    }
 
-	if (new_band != -1)
-	{
-		// Highlight the correct button
-		struct field *current_focus = get_focused_field(); // Get the currently focused field
+    if (new_band != -1)
+    {
+        // Check the TUNE 
+        if (in_tx)
+        {
+            // If TUNE is ON, skip updating the band settings
+            return;
+        }
 
-		for (int i = 0; i < max_bands; i++)
-		{
-			struct field *band_field = get_field_by_label(band_stack[i].name);
+        // Highlight the correct button
+        struct field *current_focus = get_focused_field(); // Get the currently focused field
 
-			if (band_field)
-			{
-				if (i == new_band)
-				{
-					// Only focus the band button if the frequency adjustment field is not focused
-					if (current_focus && strcmp(current_focus->label, "FREQ") != 0 &&
-						strcmp(current_focus->label, "SPECTRUM") != 0)
-					{
-						focus_field_without_toggle(band_field);
-					}
-				}
-			}
-			else
-			{
-				printf("Error: Field not found for name: %s\n", band_stack[i].name);
-			}
-		}
+        for (int i = 0; i < max_bands; i++)
+        {
+            struct field *band_field = get_field_by_label(band_stack[i].name);
 
-		// Set additional fields to reflect the current band
-		char buff[20];
-		sprintf(buff, "%d", new_band);
-		set_field("#selband", buff); // Notify UI about band change
+            if (band_field)
+            {
+                if (i == new_band)
+                {
+                    // Only focus the band button if the frequency adjustment field is not focused
+                    if (current_focus && strcmp(current_focus->label, "FREQ") != 0 &&
+                        strcmp(current_focus->label, "SPECTRUM") != 0)
+                    {
+                        focus_field_without_toggle(band_field);
+                    }
+                }
+            }
+            else
+            {
+                printf("Error: Field not found for name: %s\n", band_stack[i].name);
+            }
+        }
 
-		sprintf(buff, "%i", band_stack[new_band].if_gain);
-		field_set("IF", buff);
+        // Set additional fields to reflect the current band
+        char buff[20];
+        sprintf(buff, "%d", new_band);
+        set_field("#selband", buff); // Notify UI about band change
 
-		sprintf(buff, "%i", band_stack[new_band].drive);
-		field_set("DRIVE", buff);
+        sprintf(buff, "%i", band_stack[new_band].if_gain);
+        field_set("IF", buff);
 
-		// Call highlight_band_field for additional consistency
-		highlight_band_field(new_band);
-	}
-	else
-	{
-		// Handle frequency outside all band ranges
-		printf("Error: Frequency %ld is outside all band ranges.\n", frequency);
-	}
+        sprintf(buff, "%i", band_stack[new_band].drive);
+        field_set("DRIVE", buff);
+
+        // Call highlight_band_field for additional consistency
+        highlight_band_field(new_band);
+    }
+    else
+    {
+        // Handle frequency outside all band ranges
+        printf("Error: Frequency %ld is outside all band ranges.\n", frequency);
+    }
 }
+
+
 
 // setting the frequency is complicated by having to take care of the
 // rit/split and power levels associated with each frequency
@@ -6550,7 +6559,9 @@ void do_control_action(char *cmd)
 
 		char tn_power_command[50];
 		snprintf(tn_power_command, sizeof(tn_power_command), "tx_power=%d", tunepower); //  create TNPWR string
-		sdr_request(tn_power_command, response);										//  send TX with power level from TNPWR
+		sdr_request(tn_power_command, response);										//  send TX with power level from 
+		
+
 		sdr_request("r1:mode=TUNE", response);
 		delay(100);
 		tx_on(TX_SOFT);
