@@ -567,8 +567,8 @@ struct field main_controls[] = {
 	 "", 0, 0, 0, COMMON_CONTROL},
 	{"#record", do_record, 420, 5, 40, 40, "REC", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
-	{"#web", NULL, 460, 5, 40, 40, "WEB", 40, "", FIELD_BUTTON, FONT_FIELD_VALUE,
-	 "", 0, 0, 0, COMMON_CONTROL},
+	{"#tune", NULL, 460, 5, 40, 40, "TUNE", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
+	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
 	//{"#set", NULL, 460, 5, 40, 40, "SET", 1, "", FIELD_BUTTON, FONT_FIELD_VALUE,"", 0,0,0,COMMON_CONTROL},
 	{"r1:gain", NULL, 500, 5, 40, 40, "IF", 40, "60", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 0, 100, 1, COMMON_CONTROL},
@@ -655,6 +655,8 @@ struct field main_controls[] = {
 	 "nothing valuable", 0, 128, 0, 0},
 
 	// other settings - currently off screen
+	{"#web", NULL, 1000, -1000, 50, 50, "WEB", 40, "", FIELD_BUTTON, FONT_FIELD_VALUE,
+	 "", 0, 0, 0, 0},
 	{"reverse_scrolling", NULL, 1000, -1000, 50, 50, "RS", 40, "ON", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, 0},
 	{"tuning_acceleration", NULL, 1000, -1000, 50, 50, "TA", 40, "ON", FIELD_TOGGLE, FONT_FIELD_VALUE,
@@ -2968,25 +2970,26 @@ void menu_display(int show)
 				// Line 1 (screen_height - 140)
 				field_move("SET", 5, screen_height - 95, 45, 45);
 				field_move("TXEQ", 70, screen_height - 95, 45, 45);
-				field_move("RXEQ", 130, screen_height - 95, 45, 45);
-				field_move("NOTCH", 190, screen_height - 95, 95, 45);
-				field_move("ANR", 300, screen_height - 95, 95, 45);
-				field_move("COMP", 410, screen_height - 95, 95, 45);
-				field_move("TUNE", 520, screen_height - 95, 95, 45);
+				field_move("RXEQ", 120, screen_height - 95, 45, 45);
+				field_move("NOTCH", 185, screen_height - 95, 95, 45);
+				field_move("ANR", 285, screen_height - 95, 45, 45);
+				field_move("COMP", 350, screen_height - 95, 45, 45);
+				field_move("TXMON", 400, screen_height - 95, 45, 45);
+				//field_move("TUNE", 530, screen_height - 95, 95, 45);
 				if (!strcmp(field_str("EPTTOPT"), "ON"))
 				{
 					field_move("ePTT", 630, screen_height - 95, 95, 45); // Rightmost
 				}
 
 				// Line 2 (screen_height - 90)
-				field_move("TXMON", 5, screen_height - 45, 45, 45);
+				field_move("WEB", 5, screen_height - 45, 45, 45);
 				field_move("EQSET", 70, screen_height - 45, 95, 45);
-				field_move("NFREQ", 180, screen_height - 45, 45, 45);
-				field_move("BNDWTH", 240, screen_height - 45, 45, 45);
-				field_move("DSP", 300, screen_height - 45, 95, 45);
-				field_move("BFO", 410, screen_height - 45, 45, 45);
-				field_move("VFOLK", 470, screen_height - 45, 45, 45);
-				field_move("TNPWR", 520, screen_height - 45, 45, 45);
+				field_move("NFREQ", 185, screen_height - 45, 45, 45);
+				field_move("BNDWTH", 235, screen_height - 45, 45, 45);
+				field_move("DSP", 285, screen_height - 45, 45, 45);
+				field_move("BFO", 350, screen_height - 45, 45, 45);
+				field_move("VFOLK", 400, screen_height - 45, 45, 45);
+				field_move("TNPWR", 500, screen_height - 45, 45, 45);
 			}
 
 			else
@@ -3031,11 +3034,11 @@ void menu2_display(int show)
 
 		// Single line (screen_height - 140)
 		field_move("WFMIN", 5, screen_height - 95, 70, 45);
-		field_move("WFMAX", 80, screen_height - 95, 70, 45);
-		field_move("WFSPD", 155, screen_height - 95, 70, 45);
-		field_move("SCOPEGAIN", 230, screen_height - 95, 70, 45);
-		field_move("SCOPEAVG", 305, screen_height - 95, 70, 45);  // Add SCOPEAVG field
-		field_move("SCOPESIZE", 380, screen_height - 95, 70, 45); // Add SCOPESIZE field
+		field_move("WFMAX", 5, screen_height - 45, 70, 45);
+		field_move("WFSPD", 80, screen_height - 95, 70, 45);
+		field_move("SCOPEGAIN", 170, screen_height - 95, 70, 45);
+		field_move("SCOPEAVG", 170, screen_height - 45, 70, 45);  // Add SCOPEAVG field
+		field_move("SCOPESIZE", 245, screen_height - 95, 70, 45); // Add SCOPESIZE field
 	}
 	else
 	{
