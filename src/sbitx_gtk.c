@@ -584,7 +584,7 @@ struct field main_controls[] = {
 	 "10K/1K/500H/100H/10H", 0, 0, 0, COMMON_CONTROL},
 	{"#span", NULL, 560, 50, 40, 40, "SPAN", 1, "A", FIELD_SELECTION, FONT_FIELD_VALUE,
 	 "25K/10K/8K/6K/2.5K", 0, 0, 0, COMMON_CONTROL},
-	{"#rit", NULL, 600, 50, 40, 40, "RIT", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
+	{"#rit", NULL, 600, 5, 40, 40, "RIT", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
 	{"#vfo", NULL, 640, 50, 40, 40, "VFO", 1, "A", FIELD_SELECTION, FONT_FIELD_VALUE,
 	 "A/B", 0, 0, 0, COMMON_CONTROL},
@@ -4319,7 +4319,7 @@ int do_record(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 
 		int width = measure_text(gfx, f->label, FONT_FIELD_LABEL);
 		int offset = f->width / 2 - width / 2;
-		int label_y = f->y + ((f->height - font_table[FONT_FIELD_LABEL].height - 5 - font_table[FONT_FIELD_VALUE].height) / 2);
+		int label_y = f->y + ((f->height - font_table[FONT_FIELD_LABEL].height - font_table[FONT_FIELD_VALUE].height) / 2);
 		draw_text(gfx, f->x + offset, label_y, f->label, FONT_FIELD_LABEL);
 
 		char duration[12];
