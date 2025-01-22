@@ -47,6 +47,7 @@ The initial sync between the gui values, the core radio values, settings, et al 
 #include "ntputil.h"
 #include "para_eq.h"
 #include "eq_ui.h"
+#include <time.h>
 
 extern int get_rx_gain(void);
 extern int calculate_s_meter(struct rx *r, double rx_gain);
@@ -77,6 +78,7 @@ float scope_gain = 1.0; // Default value for SCOPEGAIN
 int scope_size = 100;	// Default size
 static bool layout_needs_refresh = false;
 static int last_scope_size = -1; // Default to an invalid value initially
+float scope_alpha_plus = 0.0; // Default additional scope alpha
 
 #define AVERAGING_FRAMES 15 // Number of frames to average
 // Buffer to hold past spectrum data
@@ -421,6 +423,8 @@ struct band
 	// Make drive and IF band specific - n1qm
 	int if_gain;
 	int drive;
+	// add tune power to band - W9JES
+	int tnpwr;
 };
 
 struct cmd
@@ -567,7 +571,7 @@ struct field main_controls[] = {
 	 "", 0, 0, 0, COMMON_CONTROL},
 	{"#record", do_record, 420, 5, 40, 40, "REC", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
-	{"#tune", NULL, 460, 5, 40, 40, "TUNE", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
+	{"#tune", do_toggle_option, 460, 5, 40, 40, "TUNE", 40, "", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, COMMON_CONTROL},
 	//{"#set", NULL, 460, 5, 40, 40, "SET", 1, "", FIELD_BUTTON, FONT_FIELD_VALUE,"", 0,0,0,COMMON_CONTROL},
 	{"r1:gain", NULL, 500, 5, 40, 40, "IF", 40, "60", FIELD_NUMBER, FONT_FIELD_VALUE,
@@ -699,6 +703,7 @@ struct field main_controls[] = {
 	 "", -16, 16, 1, 0},
 	{"#eq_b4b", do_eq_edit, 1000, -1000, 40, 40, "B4B", 40, "1", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 1, 10, 1, 0},
+	 
 	// RX EQ Controls (added)
 	{"#rx_eq_b0f", do_eq_edit, 1000, -1000, 40, 40, "R0F", 40, "80", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 40, 160, 5, 0},
@@ -766,6 +771,9 @@ struct field main_controls[] = {
 	{"#scope_size", do_wf_edit, 150, 50, 5, 50, "SCOPESIZE", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", 50, 150, 5, 0},
 
+	{"#scope_alpha", do_wf_edit, 150, 50, 5, 50, "INTENSITY", 50, "50", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 1, 10, 1, 0},	 
+
 	// VFO Lock ON/OFF
 	{"#vfo_lock", do_toggle_option, 1000, -1000, 40, 40, "VFOLK", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
 	 "ON/OFF", 0, 0, 0, 0},
@@ -817,11 +825,13 @@ struct field main_controls[] = {
 	{"#bfo_manual_offset", do_bfo_offset, 1000, -1000, 40, 40, "BFO", 80, "0", FIELD_NUMBER, FONT_FIELD_VALUE,
 	 "", -3000, 3000, 50, 0},
 
-	// GLG Tune
-	{"#tune", do_toggle_option, 1000, -1000, 50, 40, "TUNE", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
-	 "ON/OFF", 0, 0, 0, 0},
+	// Tune Controls - W9JES
+	//{"#tune", do_toggle_option, 1000, -1000, 50, 40, "TUNE", 40, "OFF", FIELD_TOGGLE, FONT_FIELD_VALUE,
+	 //"ON/OFF", 0, 0, 0, 0},
 	{"#tune_power", NULL, 1000, -1000, 50, 40, "TNPWR", 100, "20", FIELD_NUMBER, FONT_FIELD_VALUE,
-	 "", 0, 100, 1, 0},
+	 "", 1, 100, 1, 0},
+	{"#tune_duration", NULL, 1000, -1000, 50, 40, "TNDUR", 30, "5", FIELD_NUMBER, FONT_FIELD_VALUE,
+	 "", 2, 30, 1, 0},
 
 	// Settings Panel
 	{"#mycallsign", NULL, 1000, -1000, 400, 149, "MYCALLSIGN", 70, "CALL", FIELD_TEXT, FONT_SMALL,
@@ -1163,8 +1173,8 @@ int remote_update_field(int i, char *text)
 	f->update_remote = 0;
 
 	// debug on
-	//	if (!strcmp(f->cmd, "#text_in") && strlen(f->value))
-	//		printf("#text_in [%s] %d\n", f->value, update);
+	// if (!strcmp(f->cmd, "#text_in") && strlen(f->value))
+	// printf("#text_in [%s] %d\n", f->value, update);
 	// debug off
 	return update;
 }
@@ -1642,7 +1652,7 @@ void save_user_settings(int forced)
 	// now save the band stack
 	for (int i = 0; i < sizeof(band_stack) / sizeof(struct band); i++)
 	{
-		fprintf(f, "\n[%s]\ndrive=%i\ngain=%i\n", band_stack[i].name, band_stack[i].drive, band_stack[i].if_gain);
+		fprintf(f, "\n[%s]\ndrive=%i\ngain=%i\ntnpwr=%i\n", band_stack[i].name, band_stack[i].drive, band_stack[i].if_gain, band_stack[i].tnpwr);
 
 		// fprintf(f, "power=%d\n", band_stack[i].power);
 		for (int j = 0; j < STACK_DEPTH; j++)
@@ -1811,6 +1821,8 @@ static int user_settings_handler(void *user, const char *section,
 			band_stack[band].if_gain = atoi(value);
 		else if (!strcmp(name, "drive"))
 			band_stack[band].drive = atoi(value);
+		else if (!strcmp(name, "tnpwr"))
+			band_stack[band].tnpwr = atoi(value);
 	}
 	return 1;
 }
@@ -2648,11 +2660,12 @@ void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
 	cairo_set_antialias(gfx, CAIRO_ANTIALIAS_FAST);
 
 	// Add color stops to the gradient (blue -> yellow -> red)
-	cairo_pattern_add_color_stop_rgba(gradient, 0.0, 0.0, 0.0, 0.25, 0.5); // Dark blue
-	cairo_pattern_add_color_stop_rgba(gradient, 0.25, 0.0, 0.5, 1.0, 0.5); // Lighter blue
-	cairo_pattern_add_color_stop_rgba(gradient, 0.5, 0.5, 0.5, 0.0, 0.7);  // Greenish-yellow
-	cairo_pattern_add_color_stop_rgba(gradient, 0.75, 1.0, 1.0, 0.0, 0.8); // Bright yellow
-	cairo_pattern_add_color_stop_rgba(gradient, 1.0, 1.0, 0.0, 0.0, 0.9);  // Red at the top
+
+	cairo_pattern_add_color_stop_rgba(gradient, 0.0, 0.1, 0.0, 0.25, 0.5 + scope_alpha_plus); // Dark blue
+	cairo_pattern_add_color_stop_rgba(gradient, 0.25, 0.0, 0.5, 1.0, 0.5 + scope_alpha_plus); // Lighter blue
+	cairo_pattern_add_color_stop_rgba(gradient, 0.5, 0.5, 0.5, 0.0, 0.7 + scope_alpha_plus);  // Greenish-yellow
+	cairo_pattern_add_color_stop_rgba(gradient, 0.75, 1.0, 1.0, 0.0, 0.8 + scope_alpha_plus); // Bright yellow
+	cairo_pattern_add_color_stop_rgba(gradient, 1.0, 1.0, 0.0, 0.0, 0.9 + scope_alpha_plus);  // Red at the top
 	// Begin a new path for the filled spectrum
 	cairo_move_to(gfx, f->x + f->width, f->y + grid_height); // Start at bottom-right corner
 
@@ -2968,28 +2981,28 @@ void menu_display(int show)
 				// Move each control to the appropriate position, grouped by line and ordered left to right
 
 				// Line 1 (screen_height - 140)
-				field_move("SET", 5, screen_height - 95, 45, 45);
-				field_move("TXEQ", 70, screen_height - 95, 45, 45);
-				field_move("RXEQ", 120, screen_height - 95, 45, 45);
-				field_move("NOTCH", 185, screen_height - 95, 95, 45);
-				field_move("ANR", 285, screen_height - 95, 45, 45);
-				field_move("COMP", 350, screen_height - 95, 45, 45);
-				field_move("TXMON", 400, screen_height - 95, 45, 45);
-				//field_move("TUNE", 530, screen_height - 95, 95, 45);
+				field_move("SET", 5, screen_height - 100, 45, 45);
+				field_move("TXEQ", 70, screen_height - 100, 45, 45);
+				field_move("RXEQ", 120, screen_height - 100, 45, 45);
+				field_move("NOTCH", 185, screen_height - 100, 95, 45);
+				field_move("ANR", 285, screen_height - 100, 45, 45);
+				field_move("COMP", 350, screen_height - 100, 45, 45);
+				field_move("TXMON", 400, screen_height - 100, 45, 45);
+				field_move("TNDUR", 500, screen_height - 100, 45, 45);
 				if (!strcmp(field_str("EPTTOPT"), "ON"))
 				{
-					field_move("ePTT", 630, screen_height - 95, 95, 45); // Rightmost
+					field_move("ePTT", 630, screen_height - 100, 95, 45); // Rightmost
 				}
 
 				// Line 2 (screen_height - 90)
-				field_move("WEB", 5, screen_height - 45, 45, 45);
-				field_move("EQSET", 70, screen_height - 45, 95, 45);
-				field_move("NFREQ", 185, screen_height - 45, 45, 45);
-				field_move("BNDWTH", 235, screen_height - 45, 45, 45);
-				field_move("DSP", 285, screen_height - 45, 45, 45);
-				field_move("BFO", 350, screen_height - 45, 45, 45);
-				field_move("VFOLK", 400, screen_height - 45, 45, 45);
-				field_move("TNPWR", 500, screen_height - 45, 45, 45);
+				field_move("WEB", 5, screen_height - 50, 45, 45);
+				field_move("EQSET", 70, screen_height - 50, 95, 45);
+				field_move("NFREQ", 185, screen_height - 50, 45, 45);
+				field_move("BNDWTH", 235, screen_height - 50, 45, 45);
+				field_move("DSP", 285, screen_height - 50, 45, 45);
+				field_move("BFO", 350, screen_height - 50, 45, 45);
+				field_move("VFOLK", 400, screen_height - 50, 45, 45);
+				field_move("TNPWR", 500, screen_height - 50, 45, 45);
 			}
 
 			else
@@ -3033,12 +3046,13 @@ void menu2_display(int show)
 		// Display the waveform-related controls in a new layout
 
 		// Single line (screen_height - 140)
-		field_move("WFMIN", 5, screen_height - 95, 70, 45);
-		field_move("WFMAX", 5, screen_height - 45, 70, 45);
-		field_move("WFSPD", 80, screen_height - 95, 70, 45);
-		field_move("SCOPEGAIN", 170, screen_height - 95, 70, 45);
-		field_move("SCOPEAVG", 170, screen_height - 45, 70, 45);  // Add SCOPEAVG field
-		field_move("SCOPESIZE", 245, screen_height - 95, 70, 45); // Add SCOPESIZE field
+		field_move("WFMIN", 5, screen_height - 100, 70, 45);
+		field_move("WFMAX", 5, screen_height - 50, 70, 45);
+		field_move("WFSPD", 80, screen_height - 100, 70, 45);
+		field_move("SCOPEGAIN", 170, screen_height - 100, 70, 45);
+		field_move("SCOPEAVG", 170, screen_height - 50, 70, 45);  // Add SCOPEAVG field
+		field_move("SCOPESIZE", 245, screen_height - 100, 70, 45); // Add SCOPESIZE field
+		field_move("INTENSITY", 245, screen_height - 50, 70, 45); // Add SCOPE ALPHA field
 	}
 	else
 	{
@@ -3109,12 +3123,12 @@ static void layout_ui()
 
 	if (!strcmp(field_str("MENU"), "1"))
 	{
-		y2 = screen_height - 100;
+		y2 = screen_height - 105;
 		menu_display(1);
 	}
 	else if (!strcmp(field_str("MENU"), "2"))
 	{
-		y2 = screen_height - 100;
+		y2 = screen_height - 105;
 		menu2_display(1);
 	}
 	else
@@ -3586,6 +3600,9 @@ void apply_band_settings(long frequency)
 
         sprintf(buff, "%i", band_stack[new_band].drive);
         field_set("DRIVE", buff);
+		
+		sprintf(buff, "%i", band_stack[new_band].tnpwr);
+        field_set("TNPWR", buff);
 
         // Call highlight_band_field for additional consistency
         highlight_band_field(new_band);
@@ -4515,7 +4532,7 @@ int do_eqb(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 	int is_rx = 0;
 	int band = get_band_and_eq_type_from_label(f->label, &is_rx); // Determine band and TX/RX
 	int v = atoi(f->value);
-	printf("do_eqb> Band_From_Label: %d, Initial Value: %d\n", band, v);
+	//printf("do_eqb> Band_From_Label: %d, Initial Value: %d\n", band, v);
 
 	if (event == FIELD_EDIT)
 	{
@@ -4675,6 +4692,10 @@ int do_wf_edit(struct field *f, cairo_t *gfx, int event, int a, int b, int c)
 			layout_needs_refresh = true; // Mark layout for update
 		}
 	}
+	else if (strcmp(field_name, "INTENSITY") == 0)
+	{
+	    scope_alpha_plus = (float)field_value / 10.0 * 1.2 - 0.3; // Map 1-10 to -0.3 to +0.9
+	}
 
 	return 0;
 }
@@ -4796,7 +4817,7 @@ void tx_on(int trigger)
 		struct field *freq = get_field("r1:freq");
 		set_operating_freq(atoi(freq->value), response);
 		update_field(get_field("r1:freq"));
-		printf("TX\n");
+		//printf("TX\n");
 		//	printf("ext_ptt_enable value: %d\n", ext_ptt_enable); //Added to debug the switch. W2JON
 		//	printf("eq_enable value: %d\n", eq_is_enabled); //Added to debug the switch. W2JON
 	}
@@ -4948,7 +4969,7 @@ void tx_off()
 		struct field *freq = get_field("r1:freq");
 		set_operating_freq(atoi(freq->value), response);
 		update_field(get_field("r1:freq"));
-		printf("RX\n");
+		//printf("RX\n");
 	}
 	sound_input(0); // it is a low overhead call, might as well be sure
 }
@@ -4958,7 +4979,7 @@ static int layout_handler(void *user, const char *section,
 {
 	// the section is the field's name
 
-	printf("setting %s:%s to %d\n", section, name, atoi(value));
+	//printf("setting %s:%s to %d\n", section, name, atoi(value));
 	struct field *f = get_field(section);
 	if (!strcmp(name, "x"))
 		f->x = atoi(value);
@@ -5851,7 +5872,7 @@ void set_radio_mode(char *mode)
 	char umode[10], request[100], response[100];
 	int i;
 
-	printf("Mode: %s\n", mode);
+	//printf("Mode: %s\n", mode);
 	for (i = 0; i < sizeof(umode) - 1 && *mode; i++)
 		umode[i] = toupper(*mode++);
 	umode[i] = 0;
@@ -5980,7 +6001,7 @@ void handleButton2Press()
 				// Long press detected - Enable/Disable VFO lock
 				vfoLock = !vfoLock;
 				field_set("VFOLK", vfoLock ? "ON" : "OFF");
-				printf("VFOLock: %d\n", vfoLock);
+				//printf("VFOLock: %d\n", vfoLock);
 
 				if (vfoLock == 1)
 				{
@@ -6077,10 +6098,16 @@ gboolean ui_tick(gpointer gook)
 		// write_console(FONT_LOG, message);
 	}
 
-	if (ticks % 20 == 0)
-	{
+  // every 20 ticks call modem_poll to see if any modes need work done
+  if (ticks % 20 == 0)
+    modem_poll(mode_id(get_field("r1:mode")->value));
+  else {
+    // calling modem_poll every 20 ticks isn't enough to keep up with a fast
+    // straight key, so now we go on _every_ tick in MODE_CW or MODE_CWR
+    if ((mode_id(get_field("r1:mode")->value)) == MODE_CW || 
+	    (mode_id(get_field("r1:mode")->value)) == MODE_CWR)
 		modem_poll(mode_id(get_field("r1:mode")->value));
-	}
+  }
 
 	int tick_count = 100;
 
@@ -6426,6 +6453,8 @@ void change_band(char *request)
 	field_set("IF", buff);
 	sprintf(buff, "%i", band_stack[new_band].drive);
 	field_set("DRIVE", buff);
+	sprintf(buff, "%i", band_stack[new_band].tnpwr);
+	field_set("TNPWR", buff);
 
 	settings_updated++;
 }
@@ -6530,6 +6559,8 @@ void meter_calibrate()
 }
 
 bool tune_on_invoked = false; // Set initial state of TUNE
+time_t tune_on_start_time;
+int tune_duration; 
 
 void do_control_action(char *cmd)
 {
@@ -6550,21 +6581,41 @@ void do_control_action(char *cmd)
 		save_user_settings(1);
 		exit(0);
 	}
-	// GLG TUNE for TUNE button modified - W9JES, W2JON
+	// TUNE button modified - W9JES
 	else if (!strcmp(request, "TUNE ON"))
 	{
 		struct field *tnpwr_field = get_field("#tune_power"); // Obtain value of tune power
 		int tunepower = atoi(tnpwr_field->value);
-		printf("TUNE ON command received with power level: %d.\n", tunepower);
+
+		// Obtain value of tune duration
+		struct field *tndur_field = get_field("#tune_duration"); // Obtain value of tune duration
+		if (tndur_field != NULL) 
+		{
+		tune_duration = atoi(tndur_field->value); // Convert to integer
+		if (tune_duration <= 0) 
+			{
+				//printf("Invalid or missing tune duration. Aborting TUNE ON.\n");
+				return; // Exit if the tune duration is not valid
+			}
+		} 
+		else 
+		{
+			//printf("Tune duration field not found. Aborting TUNE ON.\n");
+			return; // Exit if the field is missing
+		}
+
+		//printf("TUNE ON command received with power level: %d and duration: %d seconds.\n", tunepower, tune_duration);
+
 		tune_on_invoked = true;
+		tune_on_start_time = time(NULL); // Record the current time
+
 		get_field_value_by_label("MODE", modestore);
 		get_field_value_by_label("DRIVE", powerstore);
 
 		char tn_power_command[50];
-		snprintf(tn_power_command, sizeof(tn_power_command), "tx_power=%d", tunepower); //  create TNPWR string
-		sdr_request(tn_power_command, response);										//  send TX with power level from 
-		
-
+		snprintf(tn_power_command, sizeof(tn_power_command), "tx_power=%d", tunepower); // Create TNPWR string
+		sdr_request(tn_power_command, response); // Send TX with power level from tune power
+    
 		sdr_request("r1:mode=TUNE", response);
 		delay(100);
 		tx_on(TX_SOFT);
@@ -6573,14 +6624,35 @@ void do_control_action(char *cmd)
 	{
 		if (tune_on_invoked)
 		{
-			printf("TUNE OFF command received.\n");
+			//printf("TUNE OFF command received.\n");
+			tune_on_invoked = false; // Ensure this is reset immediately to prevent repeated execution
 			do_control_action("RX");
+			abort_tx(); // added to terminate tune duration - W9JES
 			field_set("MODE", modestore);
 			field_set("DRIVE", powerstore);
-			tune_on_invoked = false;
 		}
 	}
+	// Automatic turn-off check (this should be called periodically)
+	if (tune_on_invoked)
+	{
+		time_t current_time = time(NULL);
 
+		// Check if the tune duration has elapsed
+		if (difftime(current_time, tune_on_start_time) >= tune_duration) 
+		{
+			tune_on_invoked = false; // Ensure this is reset immediately to prevent repeated execution
+			//printf("TUNE ON timed out. Turning OFF after %d seconds.\n", tune_duration);
+
+			// Perform TUNE OFF actions safely
+			do_control_action("RX");
+			field_set("TUNE", "OFF");
+			//if (modestore != NULL) // Check for null before accessing or modifying
+				field_set("MODE", modestore);
+
+			//if (powerstore != NULL) // Check for null before accessing or modifying
+				field_set("DRIVE", powerstore);
+		}
+	}
 	else if (!strcmp(request, "EQSET"))
 	{
 		eq_ui(window);
@@ -6785,6 +6857,14 @@ void do_control_action(char *cmd)
 			char ti[4];
 			strncpy(ti, request + 6, 3);
 			band_stack[atoi(get_field_by_label("SELBAND")->value)].drive = atoi(ti);
+			settings_updated++;
+		}
+		if (!strncmp(request, "TNPWR ", 6))
+		{
+			// Update band stack info of current band with new Tune Power value - W9JES
+			char ti[4];
+			strncpy(ti, request + 6, 3);
+			band_stack[atoi(get_field_by_label("SELBAND")->value)].tnpwr = atoi(ti);
 			settings_updated++;
 		}
 
@@ -7367,7 +7447,7 @@ int main(int argc, char *argv[])
 	write_console(FONT_LOG, VER_STR);
 	write_console(FONT_LOG, "\r\nEnter \\help for help\r\n");
 
-	if (strcmp(get_field("#mycallsign")->value, "NOBODY"))
+	if (strcmp(get_field("#mycallsign")->value, "N0CALL"))
 	{
 		sprintf(buff, "\nWelcome %s your grid is %s\n",
 				get_field("#mycallsign")->value, get_field("#mygrid")->value);
