@@ -1,3 +1,4 @@
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1579,7 +1580,7 @@ static void read_hw_ini()
 */
 void set_tx_power_levels()
 {
-	// printf("Setting tx_power to %d, gain to %d\n", tx_power_watts, tx_gain);
+	 printf("Setting tx_power drive to %d\n", tx_drive);
 	// int tx_power_gain = 0;
 
 	// search for power in the approved bands
