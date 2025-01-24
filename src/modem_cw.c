@@ -70,6 +70,7 @@
 	
 */
 #include <stdio.h>
+#include <sys/time.h>   //added to support debug timing code
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -357,6 +358,7 @@ static int cw_read_key(){
 // Trying to improve CW straight-key performance (and performance with external electronic keyers)
 // without changing electronic keyer function, performance or timing
 float cw_tx_get_sample() {
+  struct timeval currentTime;  //this line inserted to collect debug timing data
   float sample = 0;        // the shaped CW level (0 to 1)
   uint8_t symbol_now = cw_read_key();
   
@@ -372,6 +374,9 @@ float cw_tx_get_sample() {
       keydown_count = 1;   // this was 2000, did not seem right ....
       keyup_count = 0;
       cw_current_symbol = CW_DOWN;
+      //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
+	    gettimeofday(&currentTime, NULL);
+      printf("key dn: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     } else if (symbol_now & CW_DOT) {
       keydown_count = cw_period;
       keyup_count = cw_period;
@@ -405,6 +410,9 @@ float cw_tx_get_sample() {
       keydown_count = 0;           // this was commented out ...
       keyup_count++;
       cw_current_symbol = CW_IDLE; //go back to idle
+      //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
+	    gettimeofday(&currentTime, NULL);
+      printf("key up: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     }
     break;
   case CW_DOT:
