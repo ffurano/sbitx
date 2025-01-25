@@ -375,8 +375,8 @@ float cw_tx_get_sample() {
       keyup_count = 0;
       cw_current_symbol = CW_DOWN;
       //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
-	    gettimeofday(&currentTime, NULL);
-      printf("key dn: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
+	    //gettimeofday(&currentTime, NULL);
+      //printf("key dn: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     } else if (symbol_now & CW_DOT) {
       keydown_count = cw_period;
       keyup_count = cw_period;
@@ -406,13 +406,20 @@ float cw_tx_get_sample() {
     if (symbol_now & CW_DOWN) {   // we don't really care how long it's held down
       keydown_count++;             // but maybe one day we will check for a maximum
       keyup_count = 0;
+      //EXPERIMENTAL: we don't wait for modem_poll() to update key state
+	    cw_key_state = key_poll();  //instead we go straight to key_poll()
+	    if (cw_key_state != CW_DOWN) {
+		    cw_current_symbol = CW_IDLE; 
+	      keydown_count = 0; }
+      //END OF EXPERIMENTAL CODE
+		  //and the next couple of lines won't ever be executed?
     } else {                       // key was down but now it's not
       keydown_count = 0;           // this was commented out ...
       keyup_count++;
       cw_current_symbol = CW_IDLE; //go back to idle
       //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
-	    gettimeofday(&currentTime, NULL);
-      printf("key up: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
+	    //gettimeofday(&currentTime, NULL);
+      //printf("key up: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     }
     break;
   case CW_DOT:
