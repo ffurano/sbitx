@@ -358,12 +358,11 @@ static int cw_read_key(){
 // Trying to improve CW straight-key performance (and performance with external electronic keyers)
 // without changing electronic keyer function, performance or timing
 float cw_tx_get_sample() {
-  struct timeval currentTime;  //this line inserted to collect debug timing data
   float sample = 0;        // the shaped CW level (0 to 1)
   uint8_t symbol_now = cw_read_key();
   
   if (!keydown_count && !keyup_count) { 
-    millis_now = sbitx_millis();
+    millis_now = millis();  //REVERT FARHAN JUL 2024 CW FIX
     if (cw_tone.freq_hz != get_pitch()) // set CW pitch if needed
       vfo_start( &cw_tone, get_pitch(), 0);
   }
@@ -374,9 +373,6 @@ float cw_tx_get_sample() {
       keydown_count = 1;   // this was 2000, did not seem right ....
       keyup_count = 0;
       cw_current_symbol = CW_DOWN;
-      //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
-	    //gettimeofday(&currentTime, NULL);
-      //printf("key dn: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     } else if (symbol_now & CW_DOT) {
       keydown_count = cw_period;
       keyup_count = cw_period;
@@ -403,23 +399,18 @@ float cw_tx_get_sample() {
     }
     break;
   case CW_DOWN:      // the straight key is down
-    if (symbol_now & CW_DOWN) {   // we don't really care how long it's held down
+    if (symbol_now & CW_DOWN) {   // we don't need to track how long it's held down
       keydown_count++;             // but maybe one day we will check for a maximum
       keyup_count = 0;
-      //EXPERIMENTAL: we don't wait for modem_poll() to update key state
-	    cw_key_state = key_poll();  //instead we go straight to key_poll()
-	    if (cw_key_state != CW_DOWN) {
+      //modem_poll() did not detect key-up but we are going to check right now
+	    cw_key_state = key_poll();  
+	    if (cw_key_state != CW_DOWN) {  //we got early detection of key-up!
 		    cw_current_symbol = CW_IDLE; 
 	      keydown_count = 0; }
-      //END OF EXPERIMENTAL CODE
-		  //and the next couple of lines won't ever be executed?
     } else {                       // key was down but now it's not
       keydown_count = 0;           // this was commented out ...
       keyup_count++;
       cw_current_symbol = CW_IDLE; //go back to idle
-      //NEXT TWO LINES PRINT DATA FOR TEST PURPOSES
-	    //gettimeofday(&currentTime, NULL);
-      //printf("key up: %ld microseconds\n", currentTime.tv_sec * 1000000 + currentTime.tv_usec);
     }
     break;
   case CW_DOT:
@@ -485,7 +476,10 @@ float cw_tx_get_sample() {
 
   // keep extending 'cw_tx_until' while we're sending
   if (symbol_now & CW_DOWN || keydown_count > 0)
-	cw_tx_until = millis_now + get_cw_delay();
+	  cw_tx_until = millis_now + get_cw_delay();
+  //also need to check if macro or keyboard characters remain in the buffer
+  if (cw_bytes_available != 0)
+    cw_tx_until = millis_now + 1000;  
   return sample / 8;
 }
 
@@ -784,7 +778,7 @@ void cw_poll(int bytes_available, int tx_is_on){
 	
 	if (!tx_is_on && (cw_bytes_available || cw_key_state || (symbol_next && *symbol_next)) > 0){
 		tx_on(TX_SOFT);
-		millis_now = sbitx_millis();
+		millis_now = millis();
 		cw_tx_until = get_cw_delay() + millis_now;
 		cw_mode = get_cw_input_method();
 	}
