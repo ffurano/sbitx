@@ -403,13 +403,15 @@ float cw_tx_get_sample() {
       keydown_count++;             // but maybe one day we will check for a maximum
       keyup_count = 0;
       //modem_poll() did not detect key-up but we are going to check right now
+      //(this is an experiment to try to cut off some long dots and dashes)
 	    cw_key_state = key_poll();  
 	    if (cw_key_state != CW_DOWN) {  //we got early detection of key-up!
 		    cw_current_symbol = CW_IDLE; 
-	      keydown_count = 0; }
+	      keydown_count = 0;
+        keyup_count = 1;}          // experiment ends here
     } else {                       // key was down but now it's not
       keydown_count = 0;           // this was commented out ...
-      keyup_count++;
+      keyup_count = 1;
       cw_current_symbol = CW_IDLE; //go back to idle
     }
     break;
@@ -477,7 +479,8 @@ float cw_tx_get_sample() {
   // keep extending 'cw_tx_until' while we're sending
   if (symbol_now & CW_DOWN || keydown_count > 0)
 	  cw_tx_until = millis_now + get_cw_delay();
-  //also need to check if macro or keyboard characters remain in the buffer
+  //if macro or keyboard characters remain in the buffer
+  //prevent switching from xmit to rcv and cutting off macro
   if (cw_bytes_available != 0)
     cw_tx_until = millis_now + 1000;  
   return sample / 8;
