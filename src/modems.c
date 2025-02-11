@@ -465,7 +465,7 @@ void modem_poll(int mode){
 		if (current_mode == MODE_FT8)
 			macro_load("FT8", NULL);
 		else if (current_mode == MODE_RTTY || current_mode == MODE_PSK31 ||
-			MODE_CWR || MODE_CW){
+			current_mode == MODE_CWR || current_mode == MODE_CW){  // MWM AA2AY spotted this error
 			macro_load("CW1", NULL);	
 			modem_set_pitch(get_pitch(),current_mode);
 		}
