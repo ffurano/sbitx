@@ -6821,7 +6821,6 @@ void do_control_action(char *cmd)
 		{
 			tune_on_invoked = false; // Ensure this is reset immediately to prevent repeated execution
 			//printf("TUNE ON timed out. Turning OFF after %d seconds.\n", tune_duration);
-
 			// Perform TUNE OFF actions safely
 			do_control_action("RX");
 			field_set("TUNE", "OFF");
