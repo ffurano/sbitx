@@ -50,7 +50,7 @@ FILE *pf_debug = NULL;
 #define SBITX_V2 (1)
 
 int sbitx_version = SBITX_V2;
-
+int fwdpower, vswr;
 float fft_bins[MAX_BINS]; // spectrum ampltiudes
 float spectrum_window[MAX_BINS];
 int spectrum_plot[MAX_BINS];
