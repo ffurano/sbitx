@@ -1755,6 +1755,7 @@ void tr_switch(int tx_on) {
 			}
     digitalWrite(TX_LINE, HIGH);  // power up PA and disconnect receiver
     spectrum_reset();
+
     // Also reset the hold counter for showing the output power
     fwdpower_cnt = 0;
     fwdpower_calc = 0;
