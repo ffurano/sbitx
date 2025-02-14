@@ -1186,7 +1186,7 @@ void read_power()
 
 	// Very low power readings may spoil the swr calculation, especially in CW modes between symbols
 	// Better not to calculate the swr at all if the measured power is under a very minimal level
-	if (vfwd > 10) {
+	if (vfwd > 3) {
 		if (vref >= vfwd)
 			vswr = 100;
 		else
