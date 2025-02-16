@@ -72,6 +72,7 @@ static float wf_min = 1.0f; // Default to 100%
 static float wf_max = 1.0f; // Default to 100%
 
 int scope_avg = 10; // Default value for SCOPEAVG
+float sp_baseline = 0;
 
 // Declare global variables for WFSPD and SCOPEGAIN
 int wf_spd = 50;		// Default value for WFSPD
@@ -2231,10 +2232,13 @@ void compute_time_based_average(int *averaged_spectrum, int n_bins)
 		}
 	}
 
-	// Compute the average
+	// Compute the average and the minimum
 	for (int bin = 0; bin < n_bins; bin++)
 	{
 		averaged_spectrum[bin] /= scope_avg;
+		// Store the lowest value
+		if ((bin == 0) || (sp_baseline > averaged_spectrum[bin]))
+			sp_baseline = averaged_spectrum[bin];
 	}
 }
 
@@ -2741,8 +2745,6 @@ void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
 
 	// We want the baseline of the spectrum always to be visible at the bottom
 	// of the graph.
-	// We calculate on the fly the lowest avg value and we adjust incrementally a floating offset
-	float sp_baseline = averaged_spectrum[starting_bin];
 	static float sp_baseline_offs = 0.0;
 
 
@@ -2764,15 +2766,10 @@ void draw_spectrum(struct field *f_spectrum, cairo_t *gfx)
 		int enhanced_y = y;												// Start with the original y
 		float averaged_value = averaged_spectrum[i] - sp_baseline_offs; // Use averaged data
 
-		// Store the lowest value
-		if (sp_baseline > averaged_value)
-			sp_baseline = averaged_value;
-
-
 		float stretched_value = averaged_value * scope_gain; // Apply stretch factor
 
 		// Scale stretched value to screen coordinates
-		enhanced_y = (int)((stretched_value * f->height) / 80 + 7);
+		enhanced_y = (int)((stretched_value * f->height) / 80 + 1);
 
 		// Clip enhanced_y to grid height
 		if (enhanced_y > grid_height)
