@@ -80,6 +80,7 @@ A huge thank you to the contributors who have played a vital role in this projec
 - **Farhan - VU2ESE**
 - **Paul - G0KAO**
 - **Don - KK7OIM**
+- **Fabrizio - F4VUK**
 
 ## 🌟 Support the Project
 
