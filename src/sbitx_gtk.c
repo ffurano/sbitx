@@ -5658,7 +5658,7 @@ void rtc_read()
 	setenv("TZ", "UTC", 1);
 	gm_now = mktime(&t);
 
-	write_console(FONT_LOG, "RTC detected\n");
+	write_console(FONT_LOG, "\nRTC detected\n");
 	time_delta = (long)gm_now - (long)(millis() / 1000l);
 }
 
