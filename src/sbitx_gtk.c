@@ -7738,7 +7738,7 @@ int main(int argc, char *argv[])
 
 	console_init();
 	write_console(FONT_LOG, VER_STR);
-	//write_console(FONT_LOG, "\r\nEnter \\help for help\r\n");
+	write_console(FONT_LOG, "\r\nVisit https://github.com/drexjj/sbitx/wiki for help\r\n");
 
 	if (strcmp(get_field("#mycallsign")->value, "N0CALL"))
 	{
