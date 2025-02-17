@@ -7738,7 +7738,7 @@ int main(int argc, char *argv[])
 
 	console_init();
 	write_console(FONT_LOG, VER_STR);
-	write_console(FONT_LOG, "\r\nVisit https://github.com/drexjj/sbitx/wiki for help\r\n");
+	write_console(FONT_LOG, "\r\nVisit https://github.com/drexjj/sbitx/wiki'\n for help\r\n");
 
 	if (strcmp(get_field("#mycallsign")->value, "N0CALL"))
 	{
@@ -7747,7 +7747,7 @@ int main(int argc, char *argv[])
 		write_console(FONT_LOG, buff);
 	}
 	else
-		write_console(FONT_LOG, "Set your callsign and grid from the SET button in the menu'\n");
+		write_console(FONT_LOG, "Set your callsign and grid from'\n the SET button in the menu'\n");
 
 	set_field("#text_in", "");
 	field_set("REC", "OFF");
