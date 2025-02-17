@@ -7737,8 +7737,9 @@ int main(int argc, char *argv[])
 	set_field("r1:freq", get_field("#vfo_a_freq")->value);
 
 	console_init();
-	write_console(FONT_LOG, VER_STR, "\r\n");
-	write_console(FONT_LOG, "\r\nVisit https://github.com/drexjj/sbitx/wiki\n for help\r\n");
+	write_console(FONT_LOG, VER_STR);
+	write_console(FONT_LOG, "\n");
+	write_console(FONT_LOG, "\nVisit https://github.com/drexjj/sbitx/wiki\n for help\n");
 
 	if (strcmp(get_field("#mycallsign")->value, "N0CALL"))
 	{
@@ -7747,7 +7748,7 @@ int main(int argc, char *argv[])
 		write_console(FONT_LOG, buff);
 	}
 	else
-		write_console(FONT_LOG, "\r\nSet your callsign and grid from\n the SET button in the menu\r\n");
+		write_console(FONT_LOG, "\nSet your callsign and grid from\n the SET button in the menu\n");
 
 	set_field("#text_in", "");
 	field_set("REC", "OFF");
