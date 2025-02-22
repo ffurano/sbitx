@@ -1879,7 +1879,7 @@ static void on_power_down_button_click(GtkWidget *widget, gpointer data)
 		GtkWidget *label = gtk_label_new(NULL);
 
 		gtk_label_set_markup(GTK_LABEL(label),
-							 "<span foreground='red' size='x-large'><b>âš  IMPORTANT âš </b></span>\n\n"
+							 "<span foreground='red' size='x-large'><b>!!  IMPORTANT !! </b></span>\n\n"
 							 "<span foreground='black' size='large'><b>You must remember to switch off the main power </b></span>\n"
 							 "<span foreground='black' size='large'><b>after all activity has completely halted.</b></span>");
 
