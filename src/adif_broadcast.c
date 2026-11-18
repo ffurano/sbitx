@@ -337,21 +337,21 @@ static int format_adif_for_broadcast(sqlite3_stmt *stmt, char *buf, int buf_size
 	// Call
 	if (their_call && their_call[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<call:%d>%s ", (int)strlen(their_call), their_call);
+			"<CALL:%d>%s ", (int)strlen(their_call), their_call);
 	}
 
 	// Their grid
 	if (their_grid && their_grid[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<gridsquare:%d>%s ", (int)strlen(their_grid), their_grid);
+			"<GRIDSQUARE:%d>%s ", (int)strlen(their_grid), their_grid);
 	} else {
-		offset += snprintf(buf + offset, buf_size - offset, "<gridsquare:0> ");
+		offset += snprintf(buf + offset, buf_size - offset, "<GRIDSQUARE:0> ");
 	}
 
 	// Mode and submode
 	if (mode && mode[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<mode:%d>%s <submode:%d>%s ",
+			"<MODE:%d>%s <SUBMODE:%d>%s ",
 			(int)strlen(mode_for_adif), mode_for_adif,
 			(int)strlen(submode), submode);
 	}
@@ -359,58 +359,58 @@ static int format_adif_for_broadcast(sqlite3_stmt *stmt, char *buf, int buf_size
 	// RST sent/rcvd
 	if (rst_sent && rst_sent[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<rst_sent:%d>%s ", (int)strlen(rst_sent), rst_sent);
+			"<RST_SENT:%d>%s ", (int)strlen(rst_sent), rst_sent);
 	}
 	if (rst_rcvd && rst_rcvd[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<rst_rcvd:%d>%s ", (int)strlen(rst_rcvd), rst_rcvd);
+			"<RST_RCVD:%d>%s ", (int)strlen(rst_rcvd), rst_rcvd);
 	}
 
 	// Date and time
 	if (date_clean[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<qso_date:%d>%s ", (int)strlen(date_clean), date_clean);
+			"<QSO_DATE:%d>%s ", (int)strlen(date_clean), date_clean);
 	}
 	if (time_full[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<time_on:%d>%s ", (int)strlen(time_full), time_full);
+			"<TIME_ON:%d>%s ", (int)strlen(time_full), time_full);
 		// Also add time_off (same as time_on typically)
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<qso_date_off:%d>%s <time_off:%d>%s ",
+			"<QSO_DATE_OFF:%d>%s <TIME_OFF:%d>%s ",
 			(int)strlen(date_clean), date_clean,
 			(int)strlen(time_full), time_full);
 	}
 
 	// Band and frequency
 	offset += snprintf(buf + offset, buf_size - offset,
-		"<band:%d>%s ", (int)strlen(band), band);
+		"<BAND:%d>%s ", (int)strlen(band), band);
 	char freq_formatted[16];
 	snprintf(freq_formatted, sizeof(freq_formatted), "%.6f", freq_mhz);
 	offset += snprintf(buf + offset, buf_size - offset,
-		"<freq:%d>%s ", (int)strlen(freq_formatted), freq_formatted);
+		"<FREQ:%d>%s ", (int)strlen(freq_formatted), freq_formatted);
 
 	// Station callsign (my call)
 	if (my_call && my_call[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<station_callsign:%d>%s ", (int)strlen(my_call), my_call);
+			"<STATION_CALLSIGN:%d>%s ", (int)strlen(my_call), my_call);
 	}
 
 	// My gridsquare
 	if (my_grid && my_grid[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<my_gridsquare:%d>%s ", (int)strlen(my_grid), my_grid);
+			"<MY_GRIDSQUARE:%d>%s ", (int)strlen(my_grid), my_grid);
 	}
 
 	// TX power
 	if (tx_power && tx_power[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<tx_pwr:%d>%s ", (int)strlen(tx_power), tx_power);
+			"<TX_PWR:%d>%s ", (int)strlen(tx_power), tx_power);
 	}
 
 	// Comment (optional)
 	if (comments && comments[0]) {
 		offset += snprintf(buf + offset, buf_size - offset,
-			"<comment:%d>%s ", (int)strlen(comments), comments);
+			"<COMMENT:%d>%s ", (int)strlen(comments), comments);
 	}
 
 	// End of record (lowercase!)
