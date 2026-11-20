@@ -350,10 +350,15 @@ static int format_adif_for_broadcast(sqlite3_stmt *stmt, char *buf, int buf_size
 
 	// Mode and submode
 	if (mode && mode[0]) {
-		offset += snprintf(buf + offset, buf_size - offset,
-			"<MODE:%d>%s <SUBMODE:%d>%s ",
-			(int)strlen(mode_for_adif), mode_for_adif,
-			(int)strlen(submode), submode);
+		if (!strcmp(mode, "FT8"))
+			offset += snprintf(buf + offset, buf_size - offset,
+	                        "<MODE:%d>%s ",
+	                        (int)strlen(mode), mode);
+		else
+			offset += snprintf(buf + offset, buf_size - offset,
+				"<MODE:%d>%s <SUBMODE:%d>%s ",
+				(int)strlen(mode_for_adif), mode_for_adif,
+				(int)strlen(submode), submode);
 	}
 
 	// RST sent/rcvd
